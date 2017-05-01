@@ -63,8 +63,7 @@ mod tests {
 
     #[test]
     fn test_api() {
-        let s =
-"
+        let s = "
 # from yaml-cpp example
 - name: Ogre
   position: [0, 5, 0]
@@ -109,8 +108,7 @@ mod tests {
 
     #[test]
     fn test_fail() {
-        let s =
-"
+        let s = "
 # syntax error
 scalar
 key: [1, 2]]

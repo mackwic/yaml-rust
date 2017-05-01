@@ -19,7 +19,7 @@ enum TestEvent {
 }
 
 struct YamlChecker {
-    pub evs: Vec<TestEvent>
+    pub evs: Vec<TestEvent>,
 }
 
 impl EventReceiver for YamlChecker {
@@ -31,24 +31,22 @@ impl EventReceiver for YamlChecker {
             Event::SequenceEnd => TestEvent::OnSequenceEnd,
             Event::MappingStart(..) => TestEvent::OnMapStart,
             Event::MappingEnd => TestEvent::OnMapEnd,
-            Event::Scalar(ref v, style, _, _)=> {
+            Event::Scalar(ref v, style, _, _) => {
                 if v == "~" && style == TScalarStyle::Plain {
                     TestEvent::OnNull
                 } else {
                     TestEvent::OnScalar
                 }
-            },
+            }
             Event::Alias(_) => TestEvent::OnAlias,
-            _ => { return } // ignore other events
+            _ => return, // ignore other events
         };
         self.evs.push(tev);
     }
 }
 
 fn str_to_test_events(docs: &str) -> Vec<TestEvent> {
-    let mut p = YamlChecker {
-        evs: Vec::new()
-    };
+    let mut p = YamlChecker { evs: Vec::new() };
     let mut parser = Parser::new(docs.chars());
     parser.load(&mut p, true).unwrap();
     p.evs

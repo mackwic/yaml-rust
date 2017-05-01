@@ -27,7 +27,7 @@ enum State {
     FlowMappingKey,
     FlowMappingValue,
     FlowMappingEmptyValue,
-    End
+    End,
 }
 
 /// `Event` is used with the low-level event base parsing API,
@@ -49,7 +49,7 @@ pub enum Event {
     SequenceEnd,
     /// Anchor ID
     MappingStart(usize),
-    MappingEnd
+    MappingEnd,
 }
 
 impl Event {
@@ -90,11 +90,9 @@ impl<R: EventReceiver> MarkedEventReceiver for R {
     }
 }
 
-
-
 pub type ParseResult = Result<(Event, Marker), ScanError>;
 
-impl<T: Iterator<Item=char>> Parser<T> {
+impl<T: Iterator<Item = char>> Parser<T> {
     pub fn new(src: T) -> Parser<T> {
         Parser {
             scanner: Scanner::new(src),
@@ -115,9 +113,7 @@ impl<T: Iterator<Item=char>> Parser<T> {
         }
         if self.token.is_none() {
             match self.scanner.get_error() {
-                None =>
-                return Err(ScanError::new(self.scanner.mark(),
-                      "unexpected eof")),
+                None => return Err(ScanError::new(self.scanner.mark(), "unexpected eof")),
                 Some(e) => return Err(e),
             }
         }
@@ -136,8 +132,7 @@ impl<T: Iterator<Item=char>> Parser<T> {
         self.states.push(state);
     }
 
-    fn parse<R: MarkedEventReceiver>(&mut self, recv: &mut R)
-        -> Result<Event, ScanError> {
+    fn parse<R: MarkedEventReceiver>(&mut self, recv: &mut R) -> Result<Event, ScanError> {
         if self.state == State::End {
             return Ok(Event::StreamEnd);
         }
@@ -147,8 +142,10 @@ impl<T: Iterator<Item=char>> Parser<T> {
         Ok(ev)
     }
 
-    pub fn load<R: MarkedEventReceiver>(&mut self, recv: &mut R, multi: bool)
-        -> Result<(), ScanError> {
+    pub fn load<R: MarkedEventReceiver>(&mut self,
+                                        recv: &mut R,
+                                        multi: bool)
+                                        -> Result<(), ScanError> {
         if !self.scanner.stream_started() {
             let ev = try!(self.parse(recv));
             assert_eq!(ev, Event::StreamStart);
@@ -175,8 +172,10 @@ impl<T: Iterator<Item=char>> Parser<T> {
         Ok(())
     }
 
-    fn load_document<R: MarkedEventReceiver>(&mut self, first_ev: &Event, recv: &mut R)
-        -> Result<(), ScanError> {
+    fn load_document<R: MarkedEventReceiver>(&mut self,
+                                             first_ev: &Event,
+                                             recv: &mut R)
+                                             -> Result<(), ScanError> {
         assert_eq!(first_ev, &Event::DocumentStart);
 
         let ev = try!(self.parse(recv));
@@ -189,25 +188,26 @@ impl<T: Iterator<Item=char>> Parser<T> {
         Ok(())
     }
 
-    fn load_node<R: MarkedEventReceiver>(&mut self, first_ev: &Event, recv: &mut R)
-        -> Result<(), ScanError> {
+    fn load_node<R: MarkedEventReceiver>(&mut self,
+                                         first_ev: &Event,
+                                         recv: &mut R)
+                                         -> Result<(), ScanError> {
         match *first_ev {
-            Event::Alias(..) | Event::Scalar(..) => {
-                Ok(())
-            },
-            Event::SequenceStart(_) => {
-                self.load_sequence(first_ev, recv)
-            },
-            Event::MappingStart(_) => {
-                self.load_mapping(first_ev, recv)
-            },
-            _ => { println!("UNREACHABLE EVENT: {:?}", first_ev);
-                unreachable!(); }
+            Event::Alias(..) |
+            Event::Scalar(..) => Ok(()),
+            Event::SequenceStart(_) => self.load_sequence(first_ev, recv),
+            Event::MappingStart(_) => self.load_mapping(first_ev, recv),
+            _ => {
+                println!("UNREACHABLE EVENT: {:?}", first_ev);
+                unreachable!();
+            }
         }
     }
 
-    fn load_mapping<R: MarkedEventReceiver>(&mut self, _first_ev: &Event, recv: &mut R)
-        -> Result<(), ScanError> {
+    fn load_mapping<R: MarkedEventReceiver>(&mut self,
+                                            _first_ev: &Event,
+                                            recv: &mut R)
+                                            -> Result<(), ScanError> {
         let mut ev = try!(self.parse(recv));
         while ev != Event::MappingEnd {
             // key
@@ -223,8 +223,10 @@ impl<T: Iterator<Item=char>> Parser<T> {
         Ok(())
     }
 
-    fn load_sequence<R: MarkedEventReceiver>(&mut self, _first_ev: &Event, recv: &mut R)
-        -> Result<(), ScanError> {
+    fn load_sequence<R: MarkedEventReceiver>(&mut self,
+                                             _first_ev: &Event,
+                                             recv: &mut R)
+                                             -> Result<(), ScanError> {
         let mut ev = try!(self.parse(recv));
         while ev != Event::SequenceEnd {
             try!(self.load_node(&ev, recv));
@@ -249,7 +251,6 @@ impl<T: Iterator<Item=char>> Parser<T> {
             State::BlockNode => self.parse_node(true, false),
             // State::BlockNodeOrIndentlessSequence => self.parse_node(true, true),
             // State::FlowNode => self.parse_node(false, false),
-
             State::BlockMappingFirstKey => self.block_mapping_key(true),
             State::BlockMappingKey => self.block_mapping_key(false),
             State::BlockMappingValue => self.block_mapping_value(),
@@ -284,9 +285,8 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.state = State::ImplicitDocumentStart;
                 self.skip();
                 Ok((Event::StreamStart, tok.0))
-            },
-            _ => Err(ScanError::new(tok.0,
-                    "did not find expected <stream-start>")),
+            }
+            _ => Err(ScanError::new(tok.0, "did not find expected <stream-start>")),
         }
     }
 
@@ -304,19 +304,19 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.state = State::End;
                 self.skip();
                 Ok((Event::StreamEnd, tok.0))
-            },
-            TokenType::VersionDirective(..)
-                | TokenType::TagDirective(..)
-                | TokenType::DocumentStart => {
-                    // explicit document
-                    self._explict_document_start()
-                },
+            }
+            TokenType::VersionDirective(..) |
+            TokenType::TagDirective(..) |
+            TokenType::DocumentStart => {
+                // explicit document
+                self._explict_document_start()
+            }
             _ if implicit => {
                 try!(self.parser_process_directives());
                 self.push_state(State::DocumentEnd);
                 self.state = State::BlockNode;
                 Ok((Event::DocumentStart, tok.0))
-            },
+            }
             _ => {
                 // explicit document
                 self._explict_document_start()
@@ -334,11 +334,11 @@ impl<T: Iterator<Item=char>> Parser<T> {
                     //    return Err(ScanError::new(tok.0,
                     //        "found incompatible YAML document"));
                     //}
-                },
+                }
                 TokenType::TagDirective(..) => {
                     // TODO add tag directive
-                },
-                _ => break
+                }
+                _ => break,
             }
             self.skip();
         }
@@ -361,18 +361,16 @@ impl<T: Iterator<Item=char>> Parser<T> {
     fn document_content(&mut self) -> ParseResult {
         let tok = try!(self.peek());
         match tok.1 {
-            TokenType::VersionDirective(..)
-                |TokenType::TagDirective(..)
-                |TokenType::DocumentStart
-                |TokenType::DocumentEnd
-                |TokenType::StreamEnd => {
-                    self.pop_state();
-                    // empty scalar
-                    Ok((Event::empty_scalar(), tok.0))
-                },
-            _ => {
-                self.parse_node(true, false)
+            TokenType::VersionDirective(..) |
+            TokenType::TagDirective(..) |
+            TokenType::DocumentStart |
+            TokenType::DocumentEnd |
+            TokenType::StreamEnd => {
+                self.pop_state();
+                // empty scalar
+                Ok((Event::empty_scalar(), tok.0))
             }
+            _ => self.parse_node(true, false),
         }
     }
 
@@ -412,10 +410,13 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.pop_state();
                 self.skip();
                 match self.anchors.get(&name) {
-                    None => return Err(ScanError::new(tok.0, "while parsing node, found unknown anchor")),
-                    Some(id) => return Ok((Event::Alias(*id), tok.0))
+                    None => {
+                        return Err(ScanError::new(tok.0,
+                                                  "while parsing node, found unknown anchor"))
+                    }
+                    Some(id) => return Ok((Event::Alias(*id), tok.0)),
                 }
-            },
+            }
             TokenType::Anchor(name) => {
                 anchor_id = try!(self.register_anchor(&name, &tok.0));
                 self.skip();
@@ -425,7 +426,7 @@ impl<T: Iterator<Item=char>> Parser<T> {
                     self.skip();
                     tok = try!(self.peek());
                 }
-            },
+            }
             TokenType::Tag(..) => {
                 tag = Some(tok.1);
                 self.skip();
@@ -435,41 +436,44 @@ impl<T: Iterator<Item=char>> Parser<T> {
                     self.skip();
                     tok = try!(self.peek());
                 }
-            },
+            }
             _ => {}
         }
         match tok.1 {
             TokenType::BlockEntry if indentless_sequence => {
                 self.state = State::IndentlessSequenceEntry;
                 Ok((Event::SequenceStart(anchor_id), tok.0))
-            },
+            }
             TokenType::Scalar(style, v) => {
                 self.pop_state();
                 self.skip();
                 Ok((Event::Scalar(v, style, anchor_id, tag), tok.0))
-            },
+            }
             TokenType::FlowSequenceStart => {
                 self.state = State::FlowSequenceFirstEntry;
                 Ok((Event::SequenceStart(anchor_id), tok.0))
-            },
+            }
             TokenType::FlowMappingStart => {
                 self.state = State::FlowMappingFirstKey;
                 Ok((Event::MappingStart(anchor_id), tok.0))
-            },
+            }
             TokenType::BlockSequenceStart if block => {
                 self.state = State::BlockSequenceFirstEntry;
                 Ok((Event::SequenceStart(anchor_id), tok.0))
-            },
+            }
             TokenType::BlockMappingStart if block => {
                 self.state = State::BlockMappingFirstKey;
                 Ok((Event::MappingStart(anchor_id), tok.0))
-            },
+            }
             // ex 7.2, an empty scalar can follow a secondary tag
             _ if tag.is_some() || anchor_id > 0 => {
                 self.pop_state();
                 Ok((Event::empty_scalar_with_anchor(anchor_id, tag), tok.0))
-            },
-            _ => { Err(ScanError::new(tok.0, "while parsing a node, did not find expected node content")) }
+            }
+            _ => {
+                Err(ScanError::new(tok.0,
+                                   "while parsing a node, did not find expected node content"))
+            }
         }
     }
 
@@ -486,61 +490,58 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.skip();
                 let tok = try!(self.peek());
                 match tok.1 {
-                    TokenType::Key
-                        | TokenType::Value
-                        | TokenType::BlockEnd
-                        => {
-                            self.state = State::BlockMappingValue;
-                            // empty scalar
-                            Ok((Event::empty_scalar(), tok.0))
-                        }
+                    TokenType::Key | TokenType::Value | TokenType::BlockEnd => {
+                        self.state = State::BlockMappingValue;
+                        // empty scalar
+                        Ok((Event::empty_scalar(), tok.0))
+                    }
                     _ => {
                         self.push_state(State::BlockMappingValue);
                         self.parse_node(true, true)
                     }
                 }
-            },
+            }
             // XXX(chenyh): libyaml failed to parse spec 1.2, ex8.18
             TokenType::Value => {
                 self.state = State::BlockMappingValue;
                 Ok((Event::empty_scalar(), tok.0))
-            },
+            }
             TokenType::BlockEnd => {
                 self.pop_state();
                 self.skip();
                 Ok((Event::MappingEnd, tok.0))
-            },
+            }
             _ => {
-                Err(ScanError::new(tok.0, "while parsing a block mapping, did not find expected key"))
+                Err(ScanError::new(tok.0,
+                                   "while parsing a block mapping, did not find expected key"))
             }
         }
     }
 
     fn block_mapping_value(&mut self) -> ParseResult {
-            let tok = try!(self.peek());
-            match tok.1 {
-                TokenType::Value => {
-                    self.skip();
-                    let tok = try!(self.peek());
-                    match tok.1 {
-                        TokenType::Key | TokenType::Value | TokenType::BlockEnd
-                            => {
-                                self.state = State::BlockMappingKey;
-                                // empty scalar
-                                Ok((Event::empty_scalar(), tok.0))
-                            }
-                        _ => {
-                            self.push_state(State::BlockMappingKey);
-                            self.parse_node(true, true)
-                        }
+        let tok = try!(self.peek());
+        match tok.1 {
+            TokenType::Value => {
+                self.skip();
+                let tok = try!(self.peek());
+                match tok.1 {
+                    TokenType::Key | TokenType::Value | TokenType::BlockEnd => {
+                        self.state = State::BlockMappingKey;
+                        // empty scalar
+                        Ok((Event::empty_scalar(), tok.0))
                     }
-                },
-                _ => {
-                    self.state = State::BlockMappingKey;
-                    // empty scalar
-                    Ok((Event::empty_scalar(), tok.0))
+                    _ => {
+                        self.push_state(State::BlockMappingKey);
+                        self.parse_node(true, true)
+                    }
                 }
             }
+            _ => {
+                self.state = State::BlockMappingKey;
+                // empty scalar
+                Ok((Event::empty_scalar(), tok.0))
+            }
+        }
     }
 
     fn flow_mapping_key(&mut self, first: bool) -> ParseResult {
@@ -557,7 +558,7 @@ impl<T: Iterator<Item=char>> Parser<T> {
                     tok = try!(self.peek());
                 } else {
                     return Err(ScanError::new(tok.0,
-                        "while parsing a flow mapping, did not find expected ',' or '}'"));
+                                              "while parsing a flow mapping, did not find expected ',' or '}'"));
                 }
             }
 
@@ -565,18 +566,18 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.skip();
                 tok = try!(self.peek());
                 match tok.1 {
-                    TokenType::Value
-                        | TokenType::FlowEntry
-                        | TokenType::FlowMappingEnd => {
+                    TokenType::Value |
+                    TokenType::FlowEntry |
+                    TokenType::FlowMappingEnd => {
                         self.state = State::FlowMappingValue;
                         return Ok((Event::empty_scalar(), tok.0));
-                    },
+                    }
                     _ => {
                         self.push_state(State::FlowMappingValue);
                         return self.parse_node(false, false);
                     }
                 }
-            // XXX libyaml fail ex 7.3, empty key
+                // XXX libyaml fail ex 7.3, empty key
             } else if tok.1 == TokenType::Value {
                 self.state = State::FlowMappingValue;
                 return Ok((Event::empty_scalar(), tok.0));
@@ -602,11 +603,11 @@ impl<T: Iterator<Item=char>> Parser<T> {
             self.skip();
             let tok = try!(self.peek());
             match tok.1 {
-                TokenType::FlowEntry
-                    | TokenType::FlowMappingEnd => { },
+                TokenType::FlowEntry |
+                TokenType::FlowMappingEnd => {}
                 _ => {
-                        self.push_state(State::FlowMappingKey);
-                        return self.parse_node(false, false);
+                    self.push_state(State::FlowMappingKey);
+                    return self.parse_node(false, false);
                 }
             }
         }
@@ -628,14 +629,14 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.pop_state();
                 self.skip();
                 return Ok((Event::SequenceEnd, tok.0));
-            },
+            }
             TokenType::FlowEntry if !first => {
                 self.skip();
                 tok = try!(self.peek());
-            },
+            }
             _ if !first => {
                 return Err(ScanError::new(tok.0,
-                        "while parsing a flow sequence, expectd ',' or ']'"));
+                                          "while parsing a flow sequence, expectd ',' or ']'"));
             }
             _ => { /* next */ }
         }
@@ -644,7 +645,7 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.pop_state();
                 self.skip();
                 Ok((Event::SequenceEnd, tok.0))
-            },
+            }
             TokenType::Key => {
                 self.state = State::FlowSequenceEntryMappingKey;
                 self.skip();
@@ -667,13 +668,10 @@ impl<T: Iterator<Item=char>> Parser<T> {
         self.skip();
         tok = try!(self.peek());
         match tok.1 {
-            TokenType::BlockEntry
-                | TokenType::Key
-                | TokenType::Value
-                | TokenType::BlockEnd => {
+            TokenType::BlockEntry | TokenType::Key | TokenType::Value | TokenType::BlockEnd => {
                 self.state = State::IndentlessSequenceEntry;
                 Ok((Event::empty_scalar(), tok.0))
-            },
+            }
             _ => {
                 self.push_state(State::IndentlessSequenceEntry);
                 self.parse_node(true, false)
@@ -694,25 +692,24 @@ impl<T: Iterator<Item=char>> Parser<T> {
                 self.pop_state();
                 self.skip();
                 Ok((Event::SequenceEnd, tok.0))
-            },
+            }
             TokenType::BlockEntry => {
                 self.skip();
                 tok = try!(self.peek());
                 match tok.1 {
-                    TokenType::BlockEntry
-                        | TokenType::BlockEnd => {
+                    TokenType::BlockEntry | TokenType::BlockEnd => {
                         self.state = State::BlockSequenceEntry;
                         Ok((Event::empty_scalar(), tok.0))
-                    },
+                    }
                     _ => {
                         self.push_state(State::BlockSequenceEntry);
                         self.parse_node(true, false)
                     }
                 }
-            },
+            }
             _ => {
                 Err(ScanError::new(tok.0,
-                        "while parsing a block collection, did not find expected '-' indicator"))
+                                   "while parsing a block collection, did not find expected '-' indicator"))
             }
         }
     }
@@ -721,13 +718,13 @@ impl<T: Iterator<Item=char>> Parser<T> {
         let tok = try!(self.peek());
 
         match tok.1 {
-            TokenType::Value
-                | TokenType::FlowEntry
-                | TokenType::FlowSequenceEnd => {
-                    self.skip();
-                    self.state = State::FlowSequenceEntryMappingValue;
-                    Ok((Event::empty_scalar(), tok.0))
-            },
+            TokenType::Value |
+            TokenType::FlowEntry |
+            TokenType::FlowSequenceEnd => {
+                self.skip();
+                self.state = State::FlowSequenceEntryMappingValue;
+                Ok((Event::empty_scalar(), tok.0))
+            }
             _ => {
                 self.push_state(State::FlowSequenceEntryMappingValue);
                 self.parse_node(false, false)
@@ -740,21 +737,21 @@ impl<T: Iterator<Item=char>> Parser<T> {
 
         match tok.1 {
             TokenType::Value => {
-                    self.skip();
-                    let tok = try!(self.peek());
-                    self.state = State::FlowSequenceEntryMappingValue;
-                    match tok.1 {
-                        TokenType::FlowEntry
-                            | TokenType::FlowSequenceEnd => {
-                                self.state = State::FlowSequenceEntryMappingEnd;
-                                Ok((Event::empty_scalar(), tok.0))
-                        },
-                        _ => {
-                            self.push_state(State::FlowSequenceEntryMappingEnd);
-                            self.parse_node(false, false)
-                        }
+                self.skip();
+                let tok = try!(self.peek());
+                self.state = State::FlowSequenceEntryMappingValue;
+                match tok.1 {
+                    TokenType::FlowEntry |
+                    TokenType::FlowSequenceEnd => {
+                        self.state = State::FlowSequenceEntryMappingEnd;
+                        Ok((Event::empty_scalar(), tok.0))
                     }
-            },
+                    _ => {
+                        self.push_state(State::FlowSequenceEntryMappingEnd);
+                        self.parse_node(false, false)
+                    }
+                }
+            }
             _ => {
                 self.state = State::FlowSequenceEntryMappingEnd;
                 Ok((Event::empty_scalar(), tok.0))

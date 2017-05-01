@@ -4,8 +4,8 @@ use yaml::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum EmitError {
-        FmtError(fmt::Error),
-        BadHashmapKey,
+    FmtError(fmt::Error),
+    BadHashmapKey,
 }
 
 impl From<fmt::Error> for EmitError {
@@ -66,7 +66,9 @@ fn escape_str(wr: &mut fmt::Write, v: &str) -> Result<(), fmt::Error> {
             b'\x1e' => "\\u001e",
             b'\x1f' => "\\u001f",
             b'\x7f' => "\\u007f",
-            _ => { continue; }
+            _ => {
+                continue;
+            }
         };
 
         if start < i {
@@ -92,7 +94,7 @@ impl<'a> YamlEmitter<'a> {
             writer: writer,
             best_indent: 2,
 
-            level: -1
+            level: -1,
         }
     }
 
@@ -104,7 +106,9 @@ impl<'a> YamlEmitter<'a> {
     }
 
     fn write_indent(&mut self) -> EmitResult {
-        if self.level <= 0 { return Ok(()); }
+        if self.level <= 0 {
+            return Ok(());
+        }
         for _ in 0..self.level {
             for _ in 0..self.best_indent {
                 try!(write!(self.writer, " "));
@@ -116,42 +120,46 @@ impl<'a> YamlEmitter<'a> {
     fn emit_node_compact(&mut self, node: &Yaml) -> EmitResult {
         match *node {
             Yaml::Array(ref v) => {
-                    try!(write!(self.writer, "["));
-                    if self.level >= 0 {
-                        try!(write!(self.writer, "+ "));
+                try!(write!(self.writer, "["));
+                if self.level >= 0 {
+                    try!(write!(self.writer, "+ "));
+                }
+                self.level += 1;
+                for (cnt, x) in v.iter().enumerate() {
+                    try!(self.write_indent());
+                    if cnt > 0 {
+                        try!(write!(self.writer, ", "));
                     }
-                    self.level += 1;
-                    for (cnt, x) in v.iter().enumerate() {
-                        try!(self.write_indent());
-                        if cnt > 0 { try!(write!(self.writer, ", ")); }
-                        try!(self.emit_node(x));
-                    }
-                    self.level -= 1;
-                    try!(write!(self.writer, "]"));
-                    Ok(())
-            },
+                    try!(self.emit_node(x));
+                }
+                self.level -= 1;
+                try!(write!(self.writer, "]"));
+                Ok(())
+            }
             Yaml::Hash(ref h) => {
-                    try!(self.writer.write_str("{"));
-                    self.level += 1;
-                    for (cnt, (k, v)) in h.iter().enumerate() {
-                        if cnt > 0 {
-                            try!(write!(self.writer, ", "));
-                        }
-                        match *k {
-                            // complex key is not supported
-                            Yaml::Array(_) | Yaml::Hash(_) => {
-                                return Err(EmitError::BadHashmapKey);
-                            },
-                            _ => { try!(self.emit_node(k)); }
-                        }
-                        try!(write!(self.writer, ": "));
-                        try!(self.emit_node(v));
+                try!(self.writer.write_str("{"));
+                self.level += 1;
+                for (cnt, (k, v)) in h.iter().enumerate() {
+                    if cnt > 0 {
+                        try!(write!(self.writer, ", "));
                     }
-                    try!(self.writer.write_str("}"));
-                    self.level -= 1;
-                    Ok(())
-            },
-            _ => self.emit_node(node)
+                    match *k {
+                        // complex key is not supported
+                        Yaml::Array(_) | Yaml::Hash(_) => {
+                            return Err(EmitError::BadHashmapKey);
+                        }
+                        _ => {
+                            try!(self.emit_node(k));
+                        }
+                    }
+                    try!(write!(self.writer, ": "));
+                    try!(self.emit_node(v));
+                }
+                try!(self.writer.write_str("}"));
+                self.level -= 1;
+                Ok(())
+            }
+            _ => self.emit_node(node),
         }
     }
 
@@ -177,7 +185,7 @@ impl<'a> YamlEmitter<'a> {
                     self.level -= 1;
                     Ok(())
                 }
-            },
+            }
             Yaml::Hash(ref h) => {
                 if h.is_empty() {
                     try!(self.writer.write_str("{}"));
@@ -196,8 +204,10 @@ impl<'a> YamlEmitter<'a> {
                             Yaml::Array(_) | Yaml::Hash(_) => {
                                 try!(self.emit_node_compact(k));
                                 //return Err(EmitError::BadHashmapKey);
-                            },
-                            _ => { try!(self.emit_node(k)); }
+                            }
+                            _ => {
+                                try!(self.emit_node(k));
+                            }
                         }
                         try!(write!(self.writer, ": "));
                         try!(self.emit_node(v));
@@ -205,16 +215,15 @@ impl<'a> YamlEmitter<'a> {
                     self.level -= 1;
                     Ok(())
                 }
-            },
+            }
             Yaml::String(ref v) => {
                 if need_quotes(v) {
                     try!(escape_str(self.writer, v));
-                }
-                else {
+                } else {
                     try!(write!(self.writer, "{}", v));
                 }
                 Ok(())
-            },
+            }
             Yaml::Boolean(v) => {
                 if v {
                     try!(self.writer.write_str("true"));
@@ -222,21 +231,21 @@ impl<'a> YamlEmitter<'a> {
                     try!(self.writer.write_str("false"));
                 }
                 Ok(())
-            },
+            }
             Yaml::Integer(v) => {
                 try!(write!(self.writer, "{}", v));
                 Ok(())
-            },
+            }
             Yaml::Real(ref v) => {
                 try!(write!(self.writer, "{}", v));
                 Ok(())
-            },
+            }
             Yaml::Null | Yaml::BadValue => {
                 try!(write!(self.writer, "~"));
                 Ok(())
-            },
+            }
             // XXX(chenyh) Alias
-            _ => { Ok(()) }
+            _ => Ok(()),
         }
     }
 }
@@ -255,24 +264,17 @@ impl<'a> YamlEmitter<'a> {
 /// * When the string looks like a date (e.g. 2014-12-31) (otherwise it would be automatically converted into a Unix timestamp).
 fn need_quotes(string: &str) -> bool {
     fn need_quotes_spaces(string: &str) -> bool {
-        string.starts_with(' ')
-            || string.ends_with(' ')
+        string.starts_with(' ') || string.ends_with(' ')
     }
 
-    string == ""
-    || need_quotes_spaces(string)
-    || string.contains(|character: char| {
-        match character {
-            ':' | '{' | '}' | '[' | ']' | ',' | '&' | '*' | '#' | '?' | '|' | '-' | '<' | '>' | '=' | '!' | '%' | '@' | '`' | '\\' | '\0' ... '\x06' | '\t' | '\n' | '\r' | '\x0e' ... '\x1a' | '\x1c' ... '\x1f' => true,
-            _ => false,
-        }
-    })
-    || string == "true"
-    || string == "false"
-    || string == "null"
-    || string == "~"
-    || string.parse::<i64>().is_ok()
-    || string.parse::<f64>().is_ok()
+    string == "" || need_quotes_spaces(string) ||
+    string.contains(|character: char| match character {
+                        ':' | '{' | '}' | '[' | ']' | ',' | '&' | '*' | '#' | '?' | '|' | '-' |
+                        '<' | '>' | '=' | '!' | '%' | '@' | '`' | '\\' | '\0'...'\x06' | '\t' |
+                        '\n' | '\r' | '\x0e'...'\x1a' | '\x1c'...'\x1f' => true,
+                        _ => false,
+                    }) || string == "true" || string == "false" || string == "null" ||
+    string == "~" || string.parse::<i64>().is_ok() || string.parse::<f64>().is_ok()
 }
 
 #[cfg(test)]
