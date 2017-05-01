@@ -46,6 +46,7 @@
 extern crate linked_hash_map;
 
 pub mod yaml;
+pub mod marked_yaml;
 pub mod scanner;
 pub mod parser;
 pub mod emitter;
